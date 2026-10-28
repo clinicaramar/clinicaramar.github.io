@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Teleprompter Ramar</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root { --fundo:#111; --texto:#f5e8dd; --bordo:#6B1F2A; --destaque:#d9a7ad; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; background:var(--fundo); color:var(--texto); font-family:Georgia,'Times New Roman',serif; overflow:hidden; }
+  #menu { position:fixed; inset:0; display:flex; flex-direction:column; justify-content:center; gap:14px; padding:24px; background:var(--fundo); z-index:5; }
+  #menu h1 { font-weight:400; letter-spacing:.14em; text-transform:uppercase; font-size:1.1rem; text-align:center; color:var(--destaque); margin-bottom:8px; }
+  .item { background:var(--bordo); color:var(--texto); border:0; border-radius:12px; padding:18px; font-size:1.15rem; font-family:inherit; text-align:left; }
+  #leitor { position:fixed; inset:0; display:none; flex-direction:column; }
+  #topo { display:flex; gap:10px; align-items:center; padding:10px 12px; background:#000; z-index:4; flex-wrap:wrap; }
+  #topo button { background:var(--bordo); color:var(--texto); border:0; border-radius:10px; padding:10px 14px; font-size:1rem; font-family:inherit; }
+  #topo label { font-size:.85rem; color:var(--destaque); display:flex; align-items:center; gap:6px; }
+  #topo input[type=range] { width:90px; }
+  #area { flex:1; overflow-y:scroll; padding:0 7vw; scrollbar-width:none; position:relative; }
+  #area::-webkit-scrollbar { display:none; }
+  #texto { padding:42vh 0 90vh; font-size:38px; line-height:1.55; text-align:center; }
+  #texto p { margin-bottom:1.1em; }
+  #texto .rot { color:var(--destaque); font-size:.55em; letter-spacing:.18em; text-transform:uppercase; display:block; margin-bottom:.3em; }
+  #linha { position:fixed; left:0; right:0; top:42vh; height:2px; background:rgba(217,167,173,.35); pointer-events:none; z-index:3; }
+  .espelho #texto { transform:scaleX(-1); }
+</style>
+</head>
+<body>
+<div id="menu">
+  <h1>Teleprompter · Clínica Ramar</h1>
+  <button class="item" data-i="0">Vídeo 11 · Quem cuida de tudo e esquece de si</button>
+  <button class="item" data-i="1">Vídeo 12 · O que 40 anos já ensinaram ao seu rosto</button>
+  <button class="item" data-i="2">Vídeo 10 · Ninguém precisa saber o que você fez</button>
+  <button class="item" data-i="3">Vídeo 9 · "Nossa, você está cansada?"</button>
+</div>
+
+<div id="leitor">
+  <div id="topo">
+    <button id="voltar">Menu</button>
+    <button id="play">Iniciar</button>
+    <label>Velocidade <input id="vel" type="range" min="1" max="12" value="4"></label>
+    <label>Letra <input id="tam" type="range" min="26" max="64" value="38"></label>
+    <button id="esp">Espelho</button>
+  </div>
+  <div id="linha"></div>
+  <div id="area"><div id="texto"></div></div>
+</div>
+
+<script>
+var ROTEIROS = [
+  { gancho:"Você cuida da casa, do trabalho, de todo mundo... e a última da lista é você.",
+    corpo:"Eu sei, porque eu também vivo isso. Cuidar de você não é vaidade: é o que sustenta o resto. E não precisa ser grande. Pode ser uma consulta em que alguém escute o que você sente, olhe seu rosto como um todo e explique cada opção, sem pressa.",
+    fecho:"Se você se reconheceu, me conta aqui: o que você deixou para depois este mês?" },
+  { gancho:"Seu rosto aos 40 conta uma história. A pergunta é se ele conta a que você quer.",
+    corpo:"Meu trabalho não é te deixar com 20 anos. É você olhar no espelho e se reconhecer, com a sua expressão. As linhas fazem parte de você: a gente avalia o que faz sentido ajustar e o que vale deixar como está.",
+    fecho:"Qual parte do seu rosto você mais gosta? E qual ainda te incomoda? Escreve nos comentários." },
+  { gancho:"O melhor elogio não é “o que você fez?”. É “você está ótima”.",
+    corpo:"Naturalidade não é acaso: é proporção, planejamento e muito “não”. Eu prefiro fazer menos e fazer bem. O objetivo é esse: que a mudança seja discreta e só você saiba.",
+    fecho:"Se é isso que você procura, salva esse vídeo." },
+  { gancho:"Alguém já te disse “nossa, você está cansada?” quando você estava bem?",
+    corpo:"Acontece: o rosto às vezes transmite um cansaço que você não sente. Antes de pensar em qualquer procedimento, eu converso para entender sua queixa, sua rotina e o que você espera. E nem sempre a resposta é um procedimento.",
+    fecho:"Já aconteceu com você? Me conta nos comentários." }
+];
+var menu=document.getElementById('menu'), leitor=document.getElementById('leitor'),
+    area=document.getElementById('area'), texto=document.getElementById('texto'),
+    play=document.getElementById('play'), vel=document.getElementById('vel'),
+    tam=document.getElementById('tam'), wake=null, rodando=false, acc=0, ultimo=0;
+
+function abrir(i){
+  var r=ROTEIROS[i];
+  texto.innerHTML='<p><span class="rot">gancho</span>'+r.gancho+'</p><p><span class="rot">conversa</span>'+r.corpo+'</p><p><span class="rot">fecho</span>'+r.fecho+'</p>';
+  menu.style.display='none'; leitor.style.display='flex'; area.scrollTop=0; acc=0; parar();
+}
+Array.prototype.forEach.call(document.querySelectorAll('.item'),function(b){ b.onclick=function(){ abrir(+b.dataset.i); }; });
+document.getElementById('voltar').onclick=function(){ parar(); leitor.style.display='none'; menu.style.display='flex'; };
+document.getElementById('esp').onclick=function(){ leitor.classList.toggle('espelho'); };
+tam.oninput=function(){ texto.style.fontSize=tam.value+'px'; };
+
+function passo(t){
+  if(!rodando) return;
+  var dt=(t-ultimo)/1000; ultimo=t;
+  acc+=vel.value*12*dt;               // pixels por segundo = velocidade x 12
+  if(acc>=1){ var px=Math.floor(acc); area.scrollTop+=px; acc-=px; }
+  if(area.scrollTop+area.clientHeight>=area.scrollHeight-2){ parar(); return; }
+  requestAnimationFrame(passo);
+}
+function iniciar(){
+  rodando=true; play.textContent='Pausar'; ultimo=performance.now(); requestAnimationFrame(passo);
+  try{ if(navigator.wakeLock) navigator.wakeLock.request('screen').then(function(w){ wake=w; }); }catch(e){}
+}
+function parar(){ rodando=false; play.textContent='Iniciar'; try{ if(wake){ wake.release(); wake=null; } }catch(e){} }
+play.onclick=function(){ rodando?parar():iniciar(); };
+area.addEventListener('click',function(){ rodando?parar():iniciar(); });
+</script>
+</body>
+</html>
